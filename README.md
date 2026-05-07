@@ -23,6 +23,49 @@
 - **[src/feishu.py](src/feishu.py)** — 飞书 webhook 推送
 - **[config/sources.yaml](config/sources.yaml)** — 源清单（易于扩展）
 
+## 🚀 一键搭建（分享给别人用）
+
+把下面这段**整段**发给朋友，他/她粘贴给 Claude Code、Cursor 或任何 AI 编程助手，即可自动搭建：
+
+````
+我想搭建一个每天自动抓取 AI 医疗论文、推送到飞书的 agent。
+参考项目：https://github.com/Nancy371/AIMED
+
+请帮我完成：
+1. 在 GitHub 上 fork 仓库 Nancy371/AIMED 到我的账号
+2. git clone 我的 fork 到本地
+3. pip install -r requirements.txt
+4. 本地用 --dry-run 跑一次验证 fetch 链路
+5. 指导我在 GitHub 仓库 Settings → Secrets 里添加：
+   - ANTHROPIC_API_KEY（从 console.anthropic.com 获取）
+   - FEISHU_WEBHOOK_URL（飞书群 → 设置 → 群机器人 → 添加自定义机器人）
+6. 在 Actions 标签页手动触发 "Daily AI Med Digest" workflow
+7. 检查飞书群是否收到情报卡片
+
+不熟悉的概念请在每一步解释给我听。
+````
+
+**或者用命令行手动搭：**
+
+```bash
+# 1. 先在 https://github.com/Nancy371/AIMED 点 Fork
+# 2. 克隆你的 fork（替换成你的 GitHub 用户名）
+git clone https://github.com/<YOUR_GITHUB_USERNAME>/AIMED.git ai-med-daily
+cd ai-med-daily
+
+# 3. 装依赖
+pip install -r requirements.txt
+
+# 4. 本地测一下 fetch 链路（不调用 LLM、不推送）
+python -m src.main --skip-score --dry-run
+
+# 5. 到你 fork 的仓库 Settings → Secrets 加入：
+#    ANTHROPIC_API_KEY, FEISHU_WEBHOOK_URL
+# 6. Actions 标签页手动触发一次 "Daily AI Med Digest"
+```
+
+> 💡 想换成 DeepSeek / Kimi / Qwen 等国产模型：见下面「切换 LLM 厂商」章节。
+
 ## 快速开始
 
 ### 1. 准备环境
