@@ -1,0 +1,66 @@
+# AI 医疗每日情报源配置
+#
+# 字段说明：
+#   name:     显示名称
+#   type:     rss | pubmed
+#   url:      RSS 地址（type=rss 时使用）
+#   query:    PubMed 检索式（type=pubmed 时使用）
+#   category: drug_discovery | clinical_llm
+#   max_items: 单次拉取上限
+
+sources:
+  # ========== 药物发现与研发 ==========
+  - name: PubMed - AI Drug Discovery
+    type: pubmed
+    query: ("artificial intelligence"[Title/Abstract] OR "deep learning"[Title/Abstract] OR "machine learning"[Title/Abstract]) AND ("drug discovery"[Title/Abstract] OR "drug design"[Title/Abstract] OR "de novo design"[Title/Abstract])
+    category: drug_discovery
+    max_items: 20
+
+  - name: bioRxiv - Bioinformatics
+    type: rss
+    url: http://connect.biorxiv.org/biorxiv_xml.php?subject=bioinformatics
+    category: drug_discovery
+    max_items: 15
+
+  - name: Nature Biotechnology
+    type: rss
+    url: https://www.nature.com/nbt.rss
+    category: drug_discovery
+    max_items: 10
+
+  - name: DeepMind Blog
+    type: rss
+    url: https://deepmind.google/blog/rss.xml
+    category: drug_discovery
+    max_items: 5
+
+  # ========== 临床决策与大模型 ==========
+  - name: PubMed - Clinical LLM
+    type: pubmed
+    query: ("large language model"[Title/Abstract] OR "LLM"[Title/Abstract] OR "GPT"[Title/Abstract] OR "foundation model"[Title/Abstract]) AND ("clinical"[Title/Abstract] OR "medicine"[Title/Abstract] OR "healthcare"[Title/Abstract] OR "physician"[Title/Abstract])
+    category: clinical_llm
+    max_items: 20
+
+  - name: Nature npj Digital Medicine
+    type: rss
+    url: https://www.nature.com/npjdigitalmed.rss
+    category: clinical_llm
+    max_items: 10
+
+  - name: Lancet Digital Health
+    type: rss
+    url: https://www.thelancet.com/rssfeed/landig_current.xml
+    category: clinical_llm
+    max_items: 10
+
+  - name: Google Research Blog
+    type: rss
+    url: https://research.google/blog/rss/
+    category: clinical_llm
+    max_items: 5
+
+# 打分阈值：只推送 score >= threshold 的条目
+score_threshold: 6
+
+# 单次 Claude 调用批量大小
+batch_size: 10
