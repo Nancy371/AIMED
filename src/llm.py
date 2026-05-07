@@ -93,7 +93,7 @@ def get_client() -> LLMClient:
     provider = os.getenv("LLM_PROVIDER", "anthropic").lower().strip()
 
     if provider == "anthropic":
-        model = os.getenv("LLM_MODEL", "claude-haiku-4-5")
+        model = (os.getenv("LLM_MODEL") or "").strip() or "claude-haiku-4-5"
         api_key = os.getenv("LLM_API_KEY") or os.getenv("ANTHROPIC_API_KEY")
         log.info("LLM provider=anthropic model=%s", model)
         return AnthropicClient(model=model, api_key=api_key)
@@ -102,8 +102,8 @@ def get_client() -> LLMClient:
         api_key = os.getenv("LLM_API_KEY") or os.getenv("OPENAI_API_KEY")
         if not api_key:
             raise RuntimeError("LLM_PROVIDER=openai requires LLM_API_KEY or OPENAI_API_KEY")
-        base_url = os.getenv("LLM_BASE_URL") or None
-        model = os.getenv("LLM_MODEL", "gpt-4o-mini")
+        base_url = (os.getenv("LLM_BASE_URL") or "").strip() or None
+        model = (os.getenv("LLM_MODEL") or "").strip() or "gpt-4o-mini"
         log.info("LLM provider=openai model=%s base_url=%s", model, base_url or "<default>")
         return OpenAICompatClient(model=model, api_key=api_key, base_url=base_url)
 
