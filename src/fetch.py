@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import hashlib
 import logging
+import os
 import re
 import time
 import xml.etree.ElementTree as ET
@@ -285,6 +286,9 @@ def _fetch_youtube_transcript(video_url: str) -> str:
     """
     用 yt-dlp 获取 YouTube 视频的自动字幕。
     优先英文，没有英文则尝试中文。失败返回空字符串。
+
+    通过 YOUTUBE_COOKIES_FILE 环境变量指定 cookies.txt 路径（Netscape 格式），
+    用于绕过 YouTube 的反爬限制。未设置时不需要 cookies。
     """
     ydl_opts = {
         'skip_download': True,           # 不下载视频
@@ -294,6 +298,10 @@ def _fetch_youtube_transcript(video_url: str) -> str:
         'quiet': True,                   # 不输出 yt-dlp 的日志
         'no_warnings': True,
     }
+
+    cookies_file = os.environ.get('YOUTUBE_COOKIES_FILE', '')
+    if cookies_file and os.path.isfile(cookies_file):
+        ydl_opts['cookiefile'] = cookies_file
 
     try:
         with YoutubeDL(ydl_opts) as ydl:

@@ -32,6 +32,14 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
+      - name: Write YouTube cookies
+        if: ${{ secrets.YOUTUBE_COOKIES != '' }}
+        env:
+          YOUTUBE_COOKIES: ${{ secrets.YOUTUBE_COOKIES }}
+        run: |
+          echo "$YOUTUBE_COOKIES" > /tmp/youtube_cookies.txt
+          echo "YOUTUBE_COOKIES_FILE=/tmp/youtube_cookies.txt" >> "$GITHUB_ENV"
+
       - name: Run digest
         env:
           # LLM 配置 —— 默认用 Claude。想换其他厂商见 README
@@ -43,6 +51,8 @@ jobs:
           # 飞书
           FEISHU_WEBHOOK_URL: ${{ secrets.FEISHU_WEBHOOK_URL }}
           FEISHU_SIGN_SECRET: ${{ secrets.FEISHU_SIGN_SECRET }}
+          # YouTube cookies
+          YOUTUBE_COOKIES_FILE: ${{ env.YOUTUBE_COOKIES_FILE }}
         run: python -m src.main
 
       - name: Commit updated seen.db

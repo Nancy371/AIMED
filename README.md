@@ -70,9 +70,16 @@ python -m src.main --skip-score --dry-run
 | Secret | `ANTHROPIC_API_KEY` 或 `LLM_API_KEY` | LLM API 密钥 |
 | Secret | `FEISHU_WEBHOOK_URL` | 飞书机器人 webhook URL |
 | Secret | `FEISHU_SIGN_SECRET` | （可选）飞书签名校验密钥 |
+| Secret | `YOUTUBE_COOKIES` | （可选）YouTube cookies.txt 内容，用于提取播客字幕 |
 | Variable | `LLM_PROVIDER` | （可选，默认 `anthropic`）换其他厂商时需要 |
 | Variable | `LLM_MODEL` | （可选）覆盖默认模型 |
 | Variable | `LLM_BASE_URL` | （可选）OpenAI 兼容厂商的 endpoint |
+
+> **YouTube cookies 说明**：YouTube 对 automated 请求有反爬限制，不配置 cookies 时字幕提取会失败（降级为 RSS 摘要）。如需提取完整字幕：
+> 1. 安装浏览器插件 [cookies.txt](https://chromewebstore.google.com/detail/cookiestxt/njabckikapfpffapmjgojcnbfjonfjfg)（Chrome）或 [cookies-txt](https://addons.mozilla.org/firefox/addon/cookies-txt/)（Firefox）
+> 2. 用插件导出 YouTube cookies（Netscape 格式）
+> 3. 将导出内容添加为 GitHub Secret `YOUTUBE_COOKIES`
+> 4. 建议每 30 天更新一次，YouTube 会定期让 cookies 过期
 
 推送代码后，先在 Actions 页面手动触发一次（**Daily AI Med Digest → Run workflow**）验证。cron 会在每天 UTC 00:07（北京 08:07）自动跑。
 
