@@ -18,7 +18,7 @@ import yaml
 from .dedupe import SeenStore
 from .feishu import load_config as load_feishu, push_digest
 from .fetch import fetch_all
-from .score import filter_by_score, score_articles
+from .score import filter_by_score, remix_podcasts, score_articles
 
 ROOT = Path(__file__).resolve().parent.parent
 CONFIG_PATH = ROOT / "config" / "sources.yaml"
@@ -84,6 +84,9 @@ def main() -> int:
             # 对需要打分的文章进行评分和过滤
             scored = score_articles(to_score, batch_size=batch_size) if to_score else []
             kept_scored = filter_by_score(scored, threshold)
+
+            # 对跳过打分的文章（播客等）生成混音简报
+            no_score = remix_podcasts(no_score) if no_score else []
 
             # 合并：打分通过的 + 跳过打分的（全部保留）
             kept = kept_scored + no_score
