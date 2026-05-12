@@ -33,12 +33,13 @@ jobs:
           pip install -r requirements.txt
 
       - name: Write YouTube cookies
-        if: ${{ secrets.YOUTUBE_COOKIES != '' }}
         env:
           YOUTUBE_COOKIES: ${{ secrets.YOUTUBE_COOKIES }}
         run: |
-          echo "$YOUTUBE_COOKIES" > /tmp/youtube_cookies.txt
-          echo "YOUTUBE_COOKIES_FILE=/tmp/youtube_cookies.txt" >> "$GITHUB_ENV"
+          if [ -n "$YOUTUBE_COOKIES" ]; then
+            echo "$YOUTUBE_COOKIES" > /tmp/youtube_cookies.txt
+            echo "YOUTUBE_COOKIES_FILE=/tmp/youtube_cookies.txt" >> "$GITHUB_ENV"
+          fi
 
       - name: Run digest
         env:
