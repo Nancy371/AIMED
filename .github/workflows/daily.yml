@@ -43,8 +43,6 @@ jobs:
           # 飞书
           FEISHU_WEBHOOK_URL: ${{ secrets.FEISHU_WEBHOOK_URL }}
           FEISHU_SIGN_SECRET: ${{ secrets.FEISHU_SIGN_SECRET }}
-          # YouTube Data API（用于获取播客字幕）
-          YOUTUBE_API_KEY: ${{ secrets.YOUTUBE_API_KEY }}
         run: python -m src.main
 
       - name: Commit updated seen.db

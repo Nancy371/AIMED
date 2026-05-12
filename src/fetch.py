@@ -15,13 +15,17 @@ from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
 from typing import Any
 from urllib.parse import parse_qs, urlparse
-import os
 
 import feedparser
 import httpx
 from dateutil import parser as dateparser
-from googleapiclient.discovery import build
-from googleapiclient.errors import HttpError
+
+# yt-dlp 用于获取 YouTube 字幕（绕过 IP 封禁问题）
+try:
+    from yt_dlp import YoutubeDL
+    YT_DLP_AVAILABLE = True
+except ImportError:
+    YT_DLP_AVAILABLE = False
 
 log = logging.getLogger(__name__)
 
@@ -206,9 +210,10 @@ def _parse_pubmed_xml(xml_text: str, source: str, category: str) -> list[Article
 
 def fetch_youtube_playlist(source: dict[str, Any], window_hours: int = 168) -> list[Article]:
     """
-    从 YouTube 播放列表抓取视频，用 YouTube Data API v3 获取字幕作为 abstract。
+    从 YouTube 播放列表抓取视频，用 yt-dlp 获取自动生成的英文字幕作为 abstract。
     window_hours 默认 168（7 天），因为播客更新频率低。
-    需要环境变量 YOUTUBE_API_KEY。
+
+    yt-dlp 不需要 API key，绕过了 youtube-transcript-api 的 IP 封禁问题。
     """
     url = source["url"]
     name = source["name"]
@@ -216,9 +221,8 @@ def fetch_youtube_playlist(source: dict[str, Any], window_hours: int = 168) -> l
     max_items = source.get("max_items", 5)
     skip_scoring = source.get("skip_scoring", False)
 
-    api_key = os.getenv("YOUTUBE_API_KEY")
-    if not api_key:
-        log.warning("[youtube] YOUTUBE_API_KEY not set, skipping %s", name)
+    if not YT_DLP_AVAILABLE:
+        log.warning("[youtube] yt-dlp not installed, skipping %s", name)
         return []
 
     log.info("[youtube] fetching %s", name)
@@ -230,7 +234,7 @@ def fetch_youtube_playlist(source: dict[str, Any], window_hours: int = 168) -> l
     if not playlist_id:
         raise ValueError(f"Invalid YouTube playlist URL: {url}")
 
-    # 用 YouTube Data API v3 的 RSS feed 获取播放列表视频（免费，不消耗 quota）
+    # 用 RSS feed 快速获取播放列表里的视频列表（不消耗 API 额度，速度快）
     rss_url = f"https://www.youtube.com/feeds/videos.xml?playlist_id={playlist_id}"
     parsed_feed = feedparser.parse(rss_url, agent=USER_AGENT)
     if parsed_feed.bozo and parsed_feed.bozo_exception:
@@ -238,9 +242,6 @@ def fetch_youtube_playlist(source: dict[str, Any], window_hours: int = 168) -> l
 
     entries = parsed_feed.entries[:max_items]
     articles = []
-
-    # 初始化 YouTube API 客户端
-    youtube = build('youtube', 'v3', developerKey=api_key)
 
     for entry in entries:
         # 解析发布时间
@@ -252,7 +253,6 @@ def fetch_youtube_playlist(source: dict[str, Any], window_hours: int = 168) -> l
         if not _within_window(pub_dt, window_hours):
             continue
 
-        # 提取 video ID
         video_url = entry.get("link", "")
         video_id = video_url.split("v=")[-1].split("&")[0] if "v=" in video_url else ""
 
@@ -260,45 +260,10 @@ def fetch_youtube_playlist(source: dict[str, Any], window_hours: int = 168) -> l
             log.warning("[youtube] skipping entry without video ID: %s", entry.get("title"))
             continue
 
-        # 获取字幕
-        transcript_text = ""
-        try:
-            # 1. 列出可用的字幕
-            captions_response = youtube.captions().list(
-                part='snippet',
-                videoId=video_id
-            ).execute()
-
-            caption_id = None
-            # 优先选择英文自动生成字幕，其次是英文手动字幕
-            for item in captions_response.get('items', []):
-                snippet = item['snippet']
-                if snippet['language'] in ['en', 'zh', 'zh-Hans']:
-                    caption_id = item['id']
-                    if snippet.get('trackKind') == 'asr':  # 自动生成优先
-                        break
-
-            # 2. 下载字幕
-            if caption_id:
-                caption_content = youtube.captions().download(
-                    id=caption_id,
-                    tfmt='srt'  # SubRip 格式
-                ).execute()
-
-                # 解析 SRT 格式，提取纯文本
-                transcript_text = _parse_srt(caption_content)
-            else:
-                log.warning("[youtube] no captions available for %s (%s)", entry.get("title"), video_id)
-                transcript_text = _strip_html(entry.get("summary", ""))
-
-        except HttpError as e:
-            if e.resp.status == 403:
-                log.warning("[youtube] captions disabled for %s (%s)", entry.get("title"), video_id)
-            else:
-                log.warning("[youtube] API error for %s: %s", video_id, e)
-            transcript_text = _strip_html(entry.get("summary", ""))
-        except Exception as e:
-            log.warning("[youtube] caption fetch failed for %s: %s", video_id, e)
+        # 用 yt-dlp 获取字幕
+        transcript_text = _fetch_youtube_transcript(video_url)
+        if not transcript_text:
+            log.warning("[youtube] no transcript for %s, fallback to RSS summary", entry.get("title"))
             transcript_text = _strip_html(entry.get("summary", ""))
 
         article = Article(
@@ -316,17 +281,74 @@ def fetch_youtube_playlist(source: dict[str, Any], window_hours: int = 168) -> l
     return articles
 
 
-def _parse_srt(srt_content: str) -> str:
-    """从 SRT 字幕格式提取纯文本。"""
-    lines = srt_content.split('\n')
-    text_lines = []
-    for line in lines:
-        line = line.strip()
-        # 跳过序号行、时间戳行、空行
-        if not line or line.isdigit() or '-->' in line:
-            continue
-        text_lines.append(line)
-    return ' '.join(text_lines)
+def _fetch_youtube_transcript(video_url: str) -> str:
+    """
+    用 yt-dlp 获取 YouTube 视频的自动字幕。
+    优先英文，没有英文则尝试中文。失败返回空字符串。
+    """
+    ydl_opts = {
+        'skip_download': True,           # 不下载视频
+        'writeautomaticsub': True,       # 写入自动生成字幕
+        'subtitleslangs': ['en', 'zh-Hans', 'zh'],
+        'subtitlesformat': 'json3',      # 用 json3 格式，方便解析
+        'quiet': True,                   # 不输出 yt-dlp 的日志
+        'no_warnings': True,
+    }
+
+    try:
+        with YoutubeDL(ydl_opts) as ydl:
+            info = ydl.extract_info(video_url, download=False)
+
+            # 优先尝试自动生成字幕
+            subs = info.get('automatic_captions') or {}
+            sub_url = None
+            for lang in ['en', 'zh-Hans', 'zh']:
+                if lang in subs:
+                    # 找 json3 格式的字幕
+                    for fmt in subs[lang]:
+                        if fmt.get('ext') == 'json3':
+                            sub_url = fmt['url']
+                            break
+                    if sub_url:
+                        break
+
+            if not sub_url:
+                # fallback: 试试手动上传的字幕
+                manual_subs = info.get('subtitles') or {}
+                for lang in ['en', 'zh-Hans', 'zh']:
+                    if lang in manual_subs:
+                        for fmt in manual_subs[lang]:
+                            if fmt.get('ext') == 'json3':
+                                sub_url = fmt['url']
+                                break
+                        if sub_url:
+                            break
+
+            if not sub_url:
+                return ""
+
+            # 下载字幕 JSON 并解析
+            with httpx.Client(timeout=HTTP_TIMEOUT) as client:
+                r = client.get(sub_url)
+                r.raise_for_status()
+                return _parse_youtube_json3(r.json())
+
+    except Exception as e:
+        log.warning("[youtube] yt-dlp failed for %s: %s", video_url, e)
+        return ""
+
+
+def _parse_youtube_json3(data: dict) -> str:
+    """从 YouTube json3 格式字幕提取纯文本。"""
+    events = data.get('events', [])
+    text_parts = []
+    for event in events:
+        segs = event.get('segs', [])
+        for seg in segs:
+            text = seg.get('utf8', '')
+            if text and text.strip() != '\n':
+                text_parts.append(text)
+    return ' '.join(text_parts).replace('\n', ' ').strip()
 
 
 def _inner_text(el: ET.Element | None) -> str:

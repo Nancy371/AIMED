@@ -94,7 +94,7 @@ def _score_batch(client: LLMClient, batch: list[Article]) -> None:
         f"请对以下 {len(batch)} 条目打分并生成中文摘要：\n\n"
         + json.dumps(user_payload, ensure_ascii=False, indent=2)
     )
-    text = client.complete(system=SYSTEM_PROMPT, user=user_msg, max_tokens=2000)
+    text = client.complete(system=SYSTEM_PROMPT, user=user_msg, max_tokens=4000)
 
     results = _parse_json_array(text)
     if not results:
