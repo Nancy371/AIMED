@@ -20,18 +20,31 @@ log = logging.getLogger(__name__)
 
 SYSTEM_PROMPT = """你是一位 AI 医疗领域的资深分析师，专注于药物发现与研发、临床决策与大模型这两个子领域。
 
-你的任务：对输入的英文论文/博客条目做两件事
-1. 相关性评分（0-10 分整数）
-   - 10：顶刊突破性成果 / 知名团队重要进展
-   - 7-9：高质量研究或有实质方法创新
-   - 4-6：相关但偏综述、重复性工作或初步研究
-   - 0-3：只是边缘相关或纯工程细节
-2. 生成 80 字以内的中文摘要，突出：研究对象、方法要点、主要结论
+你的任务：对输入的英文论文/博客条目按两个维度独立打分，并生成中文摘要。
 
-输出要求：严格返回 JSON 数组，不要任何其他文字、不要 markdown 代码块。
-格式：[{"index": 0, "score": 8, "summary_zh": "...", "tags": ["药物发现"]}, ...]
+**维度 1：学术相关性 relevance（0-10 分）**
+- 10：顶刊突破性成果 / 知名团队（DeepMind、Isomorphic、Google Health 等）重要进展
+- 7-9：高质量研究或有实质方法创新
+- 4-6：相关但偏综述、重复性工作或初步研究
+- 0-3：只是边缘相关或纯工程细节
+
+**维度 2：实践影响力 practice_impact（0-10 分）—— 该信息改变现有实践的可能性**
+- 9-10：立即可改变实践 — FDA/NMPA/EMA 批准、新临床指南、即将商业化的工具、可直接落地的开源 SOTA
+- 6-8：中期可能改变 — 大型 RCT 阳性结果、被多家机构验证的方法、有明确临床转化路径
+- 3-5：概念验证 — 单中心研究、新方法但需更多验证、性能提升但缺真实场景测试
+- 0-2：纯探索/理论 — 综述、benchmark、技术报告无下游应用、纯方法学改进
+
+**输出要求：** 严格返回 JSON 数组，无任何其他文字、无 markdown 代码块。
+格式：[{"index": 0, "relevance": 8, "practice_impact": 6, "summary_zh": "...", "tags": ["药物发现"]}, ...]
+
+**摘要要求：** 80 字以内中文，突出研究对象、方法要点、主要结论。
 
 tags 从这些选：药物发现、分子生成、蛋白结构、临床LLM、医学问答、诊断辅助、监管政策、影像、基础模型、评测基准、其他"""
+
+
+# final_score 权重：相关性 60% + 实践影响力 40%
+RELEVANCE_WEIGHT = 0.6
+PRACTICE_WEIGHT = 0.4
 
 
 def score_articles(articles: list[Article], batch_size: int = 10) -> list[Article]:
@@ -80,10 +93,23 @@ def _score_batch(client: LLMClient, batch: list[Article]) -> None:
         r = by_index.get(idx)
         if not r:
             continue
+
+        # 解析两个维度的分数
         try:
-            article.score = int(r.get("score", 0))
+            relevance = int(r.get("relevance", 0))
         except (ValueError, TypeError):
-            article.score = 0
+            relevance = 0
+        try:
+            practice_impact = int(r.get("practice_impact", 0))
+        except (ValueError, TypeError):
+            practice_impact = 0
+
+        # 计算加权 final_score（四舍五入到整数）
+        final_score = relevance * RELEVANCE_WEIGHT + practice_impact * PRACTICE_WEIGHT
+
+        article.relevance = relevance
+        article.practice_impact = practice_impact
+        article.score = round(final_score)
         article.summary_zh = str(r.get("summary_zh", "")).strip()
         tags = r.get("tags", [])
         if isinstance(tags, list):

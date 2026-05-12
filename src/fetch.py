@@ -36,7 +36,9 @@ class Article:
     published_at: datetime | None = None
     doi: str = ""
     # 以下字段由下游模块填充
-    score: int | None = None
+    score: int | None = None  # final_score = relevance * 0.6 + practice_impact * 0.4
+    relevance: int | None = None     # 学术相关性 0-10
+    practice_impact: int | None = None  # 改变现有实践的可能性 0-10
     summary_zh: str = ""
     tags: list[str] = field(default_factory=list)
 
