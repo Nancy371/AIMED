@@ -77,11 +77,20 @@ def main() -> int:
             kept = fresh
         else:
             log.info("=== stage 3: score & summarize ===")
-            scored = score_articles(fresh, batch_size=batch_size)
-            kept = filter_by_score(scored, threshold)
+            # 分离需要打分的和跳过打分的文章
+            to_score = [a for a in fresh if not getattr(a, 'skip_scoring', False)]
+            no_score = [a for a in fresh if getattr(a, 'skip_scoring', False)]
+
+            # 对需要打分的文章进行评分和过滤
+            scored = score_articles(to_score, batch_size=batch_size) if to_score else []
+            kept_scored = filter_by_score(scored, threshold)
+
+            # 合并：打分通过的 + 跳过打分的（全部保留）
+            kept = kept_scored + no_score
+
             log.info(
-                "scored %d, kept %d above threshold %d",
-                len(scored), len(kept), threshold,
+                "scored %d, kept %d above threshold %d; %d articles skipped scoring (all kept)",
+                len(to_score), len(kept_scored), threshold, len(no_score),
             )
 
         # 4. Push

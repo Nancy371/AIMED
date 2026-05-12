@@ -59,6 +59,28 @@ sources:
     category: clinical_llm
     max_items: 5
 
+  # ========== 临床洞察与商业化探索（YouTube 播客，获取字幕后详细摘要）==========
+  - name: NEJM AI Grand Rounds
+    type: youtube_playlist
+    url: https://www.youtube.com/playlist?list=PLI8Ak-hj5dgHOY7FXiUc7ouK3JgtJcu8a
+    category: clinical_llm
+    max_items: 5
+    skip_scoring: true
+
+  - name: JAMA+ AI Conversations
+    type: youtube_playlist
+    url: https://www.youtube.com/playlist?list=PL4VOPuLXRs1cPr-5oaaoFK4LCp8VCSrMQ
+    category: clinical_llm
+    max_items: 5
+    skip_scoring: true
+
+  - name: Raising Health (a16z)
+    type: youtube_playlist
+    url: https://www.youtube.com/playlist?list=PLM4u6XbiXf5qzD3MrqmAmCH3w6vHBlW8E
+    category: clinical_llm
+    max_items: 5
+    skip_scoring: true
+
 # 打分阈值：只推送 score >= threshold 的条目
 score_threshold: 6
 
