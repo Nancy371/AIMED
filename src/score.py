@@ -219,7 +219,7 @@ def remix_podcasts(articles: list[Article]) -> list[Article]:
             user_msg = PODCAST_REMIX_USER_PROMPT.format(
                 title=a.title,
                 source=a.source,
-                date=a.published.strftime("%Y-%m-%d") if a.published else "未知",
+                date=a.published_at.strftime("%Y-%m-%d") if a.published_at else "未知",
                 transcript=transcript,
             )
             text = client.complete(

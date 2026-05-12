@@ -39,6 +39,12 @@ jobs:
           if [ -n "$YOUTUBE_COOKIES" ]; then
             echo "$YOUTUBE_COOKIES" > /tmp/youtube_cookies.txt
             echo "YOUTUBE_COOKIES_FILE=/tmp/youtube_cookies.txt" >> "$GITHUB_ENV"
+            echo "[debug] cookies file written, size=$(wc -c < /tmp/youtube_cookies.txt) bytes, lines=$(wc -l < /tmp/youtube_cookies.txt)"
+            echo "[debug] first line: $(head -1 /tmp/youtube_cookies.txt)"
+            echo "[debug] cookie domains:"
+            grep -o '^\.\?[a-z.]*' /tmp/youtube_cookies.txt | sort -u | head -10
+          else
+            echo "[debug] YOUTUBE_COOKIES secret is empty or not set"
           fi
 
       - name: Run digest
